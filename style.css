@@ -145,3 +145,17 @@ input, select { width: 100%; padding: 12px; margin: 8px 0; background: #0b0e14; 
 .btn-action:active {
     transform: scale(0.98);
 }
+/* --- New Reserved Status Styling --- */
+.status-reserved { 
+    background: rgba(255, 193, 7, 0.15); /* Light Amber */
+    color: #ffc107; /* Amber Text */
+    border: 1px solid #ffc107; 
+}
+/* The button when Reserved or Charging */
+.btn-occupied.status-reserved {
+    background: #ffc107; /* Amber button */
+    color: black;
+}
+.btn-occupied.status-reserved:hover {
+    background: #e0a800;
+}
