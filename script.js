@@ -1,10 +1,20 @@
-// 1. UPDATED DATA: Indian Locations with Coordinates (Lat, Lng)
+// 1. UPDATED DATA: Real-world Indian Locations with Approximate Coordinates
+// Data includes stations from major networks like Tata Power and Statiq.
 const defaultStations = [
-    { id: 1, name: "PowerGrid Station 1", location: "Bandra Kurla Complex, Mumbai", power: 200, type: "CCS2", status: "Available", lat: 19.0667, lng: 72.8683 },
-    { id: 2, name: "TATA Power Station", location: "Electronic City, Bangalore", power: 150, type: "CCS2", status: "Charging", lat: 12.8465, lng: 77.6749 },
-    { id: 3, name: "Reliance BP Mobility", location: "DLF Cyber Hub, Gurgaon", power: 50, type: "Type 2", status: "Reserved", lat: 28.4905, lng: 77.0877 },
-    { id: 4, name: "Ather Grid Fast Charger", location: "Koregaon Park, Pune", power: 80, type: "CCS2", status: "Available", lat: 18.5307, lng: 73.8966 },
-    { id: 5, name: "GoEgo Station", location: "Airport Road, Chennai", power: 100, type: "CCS2", status: "Available", lat: 13.0827, lng: 80.2707 }
+    // --- Mumbai / Maharashtra ---
+    { id: 101, name: "Tata Power EZ Charge", location: "BKC, Mumbai (Reliance Jio)", power: 100, type: "CCS2", status: "Available", lat: 19.0573, lng: 72.8647 },
+    { id: 102, name: "Statiq Hub", location: "Phoenix Marketcity, Kurla", power: 60, type: "CCS2", status: "Charging", lat: 19.0888, lng: 72.9069 },
+    { id: 103, name: "ChargeZone DC Fast", location: "Lonavala Food Mall (Highway)", power: 120, type: "CCS2", status: "Reserved", lat: 18.7758, lng: 73.4093 },
+    
+    // --- Delhi NCR ---
+    { id: 201, name: "Fortum Charge & Drive", location: "Select Citywalk, Saket", power: 50, type: "CCS2", status: "Available", lat: 28.5273, lng: 77.2155 },
+    { id: 202, name: "GLIDA EV Station", location: "DLF Cyber Hub, Gurgaon", power: 30, type: "Type 2", status: "Available", lat: 28.4905, lng: 77.0877 },
+    { id: 203, name: "Tata Power Charging", location: "Noida Sector 62", power: 25, type: "Type 2", status: "Charging", lat: 28.6256, lng: 77.3752 },
+    
+    // --- Bangalore / Karnataka ---
+    { id: 301, name: "Ather Grid (Fast)", location: "Koramangala, Bangalore", power: 25, type: "Type 2", status: "Available", lat: 12.9345, lng: 77.6186 },
+    { id: 302, name: "Magenta ChargeGrid", location: "Electronic City Phase 1", power: 150, type: "CCS2", status: "Available", lat: 12.8465, lng: 77.6749 },
+    { id: 303, name: "Statiq DC Hub", location: "Whitefield Road, Bangalore", power: 60, type: "CCS2", status: "Reserved", lat: 12.9698, lng: 77.7499 }
 ];
 
 let stations = JSON.parse(localStorage.getItem('evStations')) || defaultStations;
@@ -16,10 +26,10 @@ function saveData() {
     localStorage.setItem('evStations', JSON.stringify(stations));
 }
 
-// 2. Initialize Map (Leaflet) - Centered on Mumbai
+// 2. Initialize Map (Leaflet) - Centered on Delhi (NCR)
 function initMap() {
-    // Center map on Mumbai (19.0760, 72.8777)
-    map = L.map('map').setView([19.0760, 72.8777], 10); 
+    // Centered near Delhi for a good view of the northern stations
+    map = L.map('map').setView([28.6139, 77.2090], 10); 
 
     // Add Dark Mode Map Tiles
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -31,7 +41,7 @@ function initMap() {
     renderStations();
 }
 
-// 3. CORE LOGIC: Handle Professional Status Transitions
+// 3. CORE LOGIC: Handle Professional Status Transitions (Unchanged from previous response)
 window.handleStatusAction = (id) => {
     const station = stations.find(s => s.id === id);
     if (!station) return;
@@ -90,7 +100,7 @@ function renderStations(filterText = '', filterStatus = 'all') {
                 statusClass = 'status-available';
             } else if (station.status === 'Reserved') {
                 btnText = '<i class="fas fa-car"></i> Start Session';
-                btnClass = 'btn-occupied status-reserved'; // Use occupied style for Reserved
+                btnClass = 'btn-occupied status-reserved';
                 statusClass = 'status-reserved';
             } else { // Charging
                 btnText = '<i class="fas fa-hand-pointer"></i> End Session';
@@ -121,6 +131,7 @@ function renderStations(filterText = '', filterStatus = 'all') {
             `;
             
             card.addEventListener('click', (e) => {
+                // Fly to map marker on click
                 if (!e.target.classList.contains('btn-action')) {
                     map.flyTo([station.lat, station.lng], 15, { animate: true, duration: 1.5 });
                 }
@@ -131,7 +142,7 @@ function renderStations(filterText = '', filterStatus = 'all') {
             // B. Add to Map Marker
             let markerColor;
             if (station.status === 'Available') markerColor = '#00ff9d';
-            else if (station.status === 'Reserved') markerColor = '#ffc107'; // Yellow/Amber for Reserved
+            else if (station.status === 'Reserved') markerColor = '#ffc107';
             else markerColor = '#ff4757';
             
             const customIcon = L.divIcon({
@@ -152,7 +163,7 @@ function renderStations(filterText = '', filterStatus = 'all') {
     document.getElementById('totalAvailable').innerText = availableCount;
 }
 
-// 5. Search & Filter Listeners
+// 5. Search & Filter Listeners (unchanged)
 document.getElementById('searchInput').addEventListener('input', (e) => {
     renderStations(e.target.value, document.getElementById('filterStatus').value);
 });
@@ -161,7 +172,7 @@ document.getElementById('filterStatus').addEventListener('change', (e) => {
     renderStations(document.getElementById('searchInput').value, e.target.value);
 });
 
-// 6. Modal & Form Logic
+// 6. Modal & Form Logic (unchanged)
 const modal = document.getElementById('stationModal');
 document.getElementById('addStationBtn').onclick = () => modal.style.display = 'flex';
 document.querySelector('.close-btn').onclick = () => modal.style.display = 'none';
@@ -170,6 +181,7 @@ window.onclick = (e) => { if (e.target == modal) modal.style.display = 'none'; }
 document.getElementById('stationForm').addEventListener('submit', (e) => {
     e.preventDefault();
     
+    // NOTE: You must use real coordinates (lat/lng) when adding a new station!
     const newStation = {
         id: Date.now(),
         name: document.getElementById('nameInput').value,
