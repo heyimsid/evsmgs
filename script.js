@@ -1,217 +1,106 @@
-/* --- Global Variables & Reset --- */
-:root {
-    --bg-color: #0f172a;       /* Dark Navy Background */
-    --card-bg: #1e293b;        /* Lighter Navy for Cards */
-    --text-main: #f8fafc;      /* White text */
-    --text-muted: #94a3b8;     /* Grey text */
-    --accent: #8b5cf6;         /* Purple accent */
-    --accent-glow: #8b5cf680;
-    --gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+// 1. Initial Data (If storage is empty)
+const initialEvents = [
+    {
+        id: 1,
+        title: "Neon Cyber Party",
+        date: "2025-08-15",
+        price: 50,
+        image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        id: 2,
+        title: "Tech Innovation Summit",
+        date: "2025-09-20",
+        price: 120,
+        image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        id: 3,
+        title: "Modern Art Gallery",
+        date: "2025-10-05",
+        price: 25,
+        image: "https://images.unsplash.com/photo-1518998053901-5348d3969104?auto=format&fit=crop&w=600&q=80"
+    }
+];
+
+// 2. Select DOM Elements
+const eventsContainer = document.getElementById('eventsContainer');
+const addEventBtn = document.getElementById('addEventBtn');
+const modal = document.getElementById('eventModal');
+const closeBtn = document.querySelector('.close-btn');
+const eventForm = document.getElementById('eventForm');
+
+// 3. Load Events from LocalStorage or use Initial Data
+let events = JSON.parse(localStorage.getItem('myEvents')) || initialEvents;
+
+// 4. Function to Render Events
+function renderEvents() {
+    eventsContainer.innerHTML = ""; // Clear current list
+
+    events.forEach(event => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        
+        // Fallback image if user provides none
+        const imgUrl = event.image || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=600&q=80";
+
+        card.innerHTML = `
+            <div class="relative">
+                <img src="${imgUrl}" alt="${event.title}" class="card-image">
+                <span class="card-date">${event.date}</span>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">${event.title}</h3>
+                <div class="card-footer">
+                    <span class="price">$${event.price}</span>
+                    <button class="btn-book" onclick="alert('Booking confirmed for ${event.title}!')">Book</button>
+                </div>
+            </div>
+        `;
+        eventsContainer.appendChild(card);
+    });
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Poppins', sans-serif;
-}
+// 5. Handle Modal (Open/Close)
+addEventBtn.addEventListener('click', () => {
+    modal.style.display = 'flex';
+});
 
-body {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    padding-bottom: 50px;
-}
+closeBtn.addEventListener('click', () => {
+    modal.style.display = 'none';
+});
 
-/* --- Navigation --- */
-.navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
-}
+// Close modal if clicking outside the box
+window.addEventListener('click', (e) => {
+    if (e.target == modal) {
+        modal.style.display = 'none';
+    }
+});
 
-.logo {
-    font-size: 1.5rem;
-    font-weight: 700;
-}
+// 6. Handle New Event Submission
+eventForm.addEventListener('submit', (e) => {
+    e.preventDefault(); // Stop page reload
 
-.highlight {
-    color: var(--accent);
-}
+    // Get values from inputs
+    const newEvent = {
+        id: Date.now(), // Unique ID based on time
+        title: document.getElementById('titleInput').value,
+        date: document.getElementById('dateInput').value,
+        price: document.getElementById('priceInput').value,
+        image: document.getElementById('imageInput').value
+    };
 
-/* --- Hero Section --- */
-.hero {
-    text-align: center;
-    padding: 4rem 1rem;
-}
+    // Add to array
+    events.push(newEvent);
 
-.hero h1 {
-    font-size: 3rem;
-    line-height: 1.2;
-    margin-bottom: 1rem;
-}
+    // Save to LocalStorage
+    localStorage.setItem('myEvents', JSON.stringify(events));
 
-/* Gradient Text Effect */
-.gradient-text {
-    background: var(--gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
+    // Re-render and close modal
+    renderEvents();
+    modal.style.display = 'none';
+    eventForm.reset();
+});
 
-.hero p {
-    color: var(--text-muted);
-}
-
-/* --- Responsive Grid System --- */
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1.5rem;
-}
-
-.section-title {
-    margin-bottom: 1.5rem;
-    font-size: 1.5rem;
-    border-left: 4px solid var(--accent);
-    padding-left: 10px;
-}
-
-/* The Mobile Stable Grid */
-.events-grid {
-    display: grid;
-    /* This creates automatic columns based on screen width */
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-}
-
-/* --- Event Cards --- */
-.card {
-    background-color: var(--card-bg);
-    border-radius: 16px;
-    overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    border: 1px solid #334155;
-    position: relative;
-}
-
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px var(--accent-glow);
-}
-
-.card-image {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-}
-
-.card-content {
-    padding: 1.5rem;
-}
-
-.card-date {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    backdrop-filter: blur(5px);
-}
-
-.card-title {
-    font-size: 1.2rem;
-    margin-bottom: 0.5rem;
-}
-
-.card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 1rem;
-}
-
-.price {
-    color: #4ade80; /* Green */
-    font-weight: 600;
-    font-size: 1.1rem;
-}
-
-/* --- Buttons --- */
-.btn-primary, .btn-book {
-    background: var(--gradient);
-    border: none;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: opacity 0.2s;
-}
-
-.btn-book {
-    padding: 8px 16px;
-    font-size: 0.9rem;
-}
-
-.btn-primary:hover, .btn-book:hover {
-    opacity: 0.9;
-}
-
-/* --- Modal (Popup) --- */
-.modal {
-    display: none; /* Hidden by default */
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background-color: rgba(0,0,0,0.8);
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background-color: var(--card-bg);
-    padding: 2rem;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 400px;
-    position: relative;
-}
-
-.close-btn {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--text-muted);
-}
-
-/* Form Styles */
-input {
-    width: 100%;
-    padding: 12px;
-    margin: 10px 0;
-    background: #0f172a;
-    border: 1px solid #334155;
-    color: white;
-    border-radius: 8px;
-}
-
-.btn-submit {
-    width: 100%;
-    background: var(--gradient);
-    border: none;
-    color: white;
-    padding: 12px;
-    border-radius: 8px;
-    margin-top: 10px;
-    cursor: pointer;
-    font-weight: bold;
-}
+// Initial Render
+renderEvents();
