@@ -1,11 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoltGrid | EV Station Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+
+    <nav class="navbar">
+        <div class="logo"><i class="fas fa-bolt"></i> Volt<span class="highlight">Grid</span></div>
+        <button id="addStationBtn" class="btn-primary"><i class="fas fa-plus"></i> Add Station</button>
+    </nav>
+
+    <header class="stats-bar">
+        <div class="stat-box">
+            <h3>Active Stations</h3>
+            <p id="totalStations">0</p>
+        </div>
+        <div class="stat-box">
+            <h3>Available Slots</h3>
+            <p id="totalAvailable" class="text-green">0</p>
+        </div>
+        <div class="stat-box">
+            <h3>Power Usage</h3>
+            <p>450 <span class="unit">kW</span></p>
+        </div>
+    </header>
+
     <div class="controls container">
-        <input type="text" id="searchInput" placeholder="Search location (e.g. Mall, Highway)..." class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search location..." class="search-bar">
         <select id="filterStatus" class="filter-dropdown">
             <option value="all">All Status</option>
             <option value="Available">Available</option>
@@ -13,16 +39,33 @@
         </select>
     </div>
 
-    <div class="dashboard-container">
-        
-        <div class="list-sidebar">
-            <div id="stationGrid" class="list-layout">
+    <main>
+        <div class="container">
+            <div id="stationGrid" class="grid-layout">
                 </div>
         </div>
+    </main>
 
-        <div id="map"></div>
+    <div id="stationModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2><i class="fas fa-charging-station"></i> New Station</h2>
+            <form id="stationForm">
+                <input type="text" id="nameInput" placeholder="Station Name / ID" required>
+                <input type="text" id="locationInput" placeholder="Location (City/Area)" required>
+                <div class="row">
+                    <input type="number" id="powerInput" placeholder="Power (kW)" required>
+                    <select id="typeInput">
+                        <option value="CCS2">CCS2 (Fast)</option>
+                        <option value="Type 2">Type 2 (AC)</option>
+                        <option value="CHAdeMO">CHAdeMO</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">Deploy Station</button>
+            </form>
+        </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="script.js"></script>
 </body>
+</html>
