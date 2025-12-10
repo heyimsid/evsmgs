@@ -1,106 +1,147 @@
-// 1. Initial Data (If storage is empty)
-const initialEvents = [
+// 1. Station Data (Simulated Database)
+const stationsData = [
     {
         id: 1,
-        title: "Neon Cyber Party",
-        date: "2025-08-15",
-        price: 50,
-        image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80"
+        name: "Central Plaza Hub",
+        location: "Downtown",
+        type: "DC Fast Charge",
+        speed: "150kW",
+        price: "$0.45/kWh",
+        status: "Available", // or 'Busy'
+        image: "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=600&q=80"
     },
     {
         id: 2,
-        title: "Tech Innovation Summit",
-        date: "2025-09-20",
-        price: 120,
-        image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80"
+        name: "GreenWay Mall",
+        location: "Westside",
+        type: "Type 2 AC",
+        speed: "22kW",
+        price: "$0.25/kWh",
+        status: "Available",
+        image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80"
     },
     {
         id: 3,
-        title: "Modern Art Gallery",
-        date: "2025-10-05",
-        price: 25,
-        image: "https://images.unsplash.com/photo-1518998053901-5348d3969104?auto=format&fit=crop&w=600&q=80"
+        name: "Tech Park Station",
+        location: "North Gate",
+        type: "Tesla Supercharger",
+        speed: "250kW",
+        price: "$0.50/kWh",
+        status: "Busy",
+        image: "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        id: 4,
+        name: "EcoStop Highway",
+        location: "Exit 42",
+        type: "CCS2 Rapid",
+        speed: "50kW",
+        price: "$0.30/kWh",
+        status: "Available",
+        image: "https://images.unsplash.com/photo-1647427060118-4911c9821b82?auto=format&fit=crop&w=600&q=80"
     }
 ];
 
 // 2. Select DOM Elements
-const eventsContainer = document.getElementById('eventsContainer');
-const addEventBtn = document.getElementById('addEventBtn');
-const modal = document.getElementById('eventModal');
+const grid = document.getElementById('stationGrid');
+const searchInput = document.getElementById('searchInput');
+const totalCount = document.getElementById('totalCount');
+const availableCount = document.getElementById('availableCount');
+const modal = document.getElementById('bookingModal');
 const closeBtn = document.querySelector('.close-btn');
-const eventForm = document.getElementById('eventForm');
+const bookingForm = document.getElementById('bookingForm');
 
-// 3. Load Events from LocalStorage or use Initial Data
-let events = JSON.parse(localStorage.getItem('myEvents')) || initialEvents;
+let currentStationId = null;
 
-// 4. Function to Render Events
-function renderEvents() {
-    eventsContainer.innerHTML = ""; // Clear current list
+// 3. Render Stations Function
+function renderStations(data) {
+    grid.innerHTML = ""; // Clear existing
+    let available = 0;
 
-    events.forEach(event => {
+    data.forEach(station => {
+        if (station.status === 'Available') available++;
+
         const card = document.createElement('div');
-        card.className = 'card';
+        card.className = 'station-card';
         
-        // Fallback image if user provides none
-        const imgUrl = event.image || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=600&q=80";
+        // Dynamic Badge Class (Green/Red)
+        const badgeClass = station.status === 'Available' ? 'available' : 'busy';
+        const btnState = station.status === 'Busy' ? 'disabled' : '';
+        const btnText = station.status === 'Busy' ? 'Occupied' : 'Charge Now';
 
         card.innerHTML = `
-            <div class="relative">
-                <img src="${imgUrl}" alt="${event.title}" class="card-image">
-                <span class="card-date">${event.date}</span>
+            <div class="card-header">
+                <span class="badge ${badgeClass}">${station.status}</span>
+                <i class="fas fa-bolt" style="color: ${station.status === 'Available' ? '#00ff9d' : '#ff4757'}"></i>
             </div>
-            <div class="card-content">
-                <h3 class="card-title">${event.title}</h3>
-                <div class="card-footer">
-                    <span class="price">$${event.price}</span>
-                    <button class="btn-book" onclick="alert('Booking confirmed for ${event.title}!')">Book</button>
+            <img src="${station.image}" alt="${station.name}" class="station-img">
+            <div class="station-info">
+                <h3>${station.name}</h3>
+                <p><i class="fas fa-map-marker-alt"></i> ${station.location}</p>
+                <div class="specs">
+                    <span><i class="fas fa-plug"></i> ${station.type}</span>
+                    <span><i class="fas fa-tachometer-alt"></i> ${station.speed}</span>
                 </div>
+                <button class="btn-action" ${btnState} onclick="openModal(${station.id})">
+                    ${btnText}
+                </button>
             </div>
         `;
-        eventsContainer.appendChild(card);
+        grid.appendChild(card);
     });
+
+    // Update Stats
+    totalCount.textContent = data.length;
+    availableCount.textContent = available;
 }
 
-// 5. Handle Modal (Open/Close)
-addEventBtn.addEventListener('click', () => {
-    modal.style.display = 'flex';
+// 4. Search Filter
+searchInput.addEventListener('input', (e) => {
+    const term = e.target.value.toLowerCase();
+    const filtered = stationsData.filter(station => 
+        station.location.toLowerCase().includes(term) || 
+        station.name.toLowerCase().includes(term)
+    );
+    renderStations(filtered);
 });
+
+// 5. Modal & Booking Logic
+window.openModal = (id) => {
+    const station = stationsData.find(s => s.id === id);
+    if (!station || station.status === 'Busy') return;
+
+    currentStationId = id;
+    document.getElementById('modalTitle').innerText = station.name;
+    document.getElementById('modalType').innerText = station.type;
+    document.getElementById('modalPrice').innerText = station.price;
+    modal.style.display = 'flex';
+};
 
 closeBtn.addEventListener('click', () => {
     modal.style.display = 'none';
 });
 
-// Close modal if clicking outside the box
-window.addEventListener('click', (e) => {
-    if (e.target == modal) {
-        modal.style.display = 'none';
+// Simulate Booking (Change Status to Busy)
+bookingForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    // Update data array
+    const stationIndex = stationsData.findIndex(s => s.id === currentStationId);
+    if (stationIndex > -1) {
+        stationsData[stationIndex].status = 'Busy';
     }
-});
 
-// 6. Handle New Event Submission
-eventForm.addEventListener('submit', (e) => {
-    e.preventDefault(); // Stop page reload
-
-    // Get values from inputs
-    const newEvent = {
-        id: Date.now(), // Unique ID based on time
-        title: document.getElementById('titleInput').value,
-        date: document.getElementById('dateInput').value,
-        price: document.getElementById('priceInput').value,
-        image: document.getElementById('imageInput').value
-    };
-
-    // Add to array
-    events.push(newEvent);
-
-    // Save to LocalStorage
-    localStorage.setItem('myEvents', JSON.stringify(events));
-
-    // Re-render and close modal
-    renderEvents();
+    // Refresh UI
+    renderStations(stationsData);
     modal.style.display = 'none';
-    eventForm.reset();
+    bookingForm.reset();
+    alert("Charging Session Started! Drive safe.");
 });
 
-// Initial Render
-renderEvents();
+// Close modal on outside click
+window.addEventListener('click', (e) => {
+    if (e.target == modal) modal.style.display = 'none';
+});
+
+// Initial Load
+renderStations(stationsData);
