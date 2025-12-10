@@ -1,147 +1,139 @@
-// 1. Station Data (Simulated Database)
-const stationsData = [
-    {
-        id: 1,
-        name: "Central Plaza Hub",
-        location: "Downtown",
-        type: "DC Fast Charge",
-        speed: "150kW",
-        price: "$0.45/kWh",
-        status: "Available", // or 'Busy'
-        image: "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        id: 2,
-        name: "GreenWay Mall",
-        location: "Westside",
-        type: "Type 2 AC",
-        speed: "22kW",
-        price: "$0.25/kWh",
-        status: "Available",
-        image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        id: 3,
-        name: "Tech Park Station",
-        location: "North Gate",
-        type: "Tesla Supercharger",
-        speed: "250kW",
-        price: "$0.50/kWh",
-        status: "Busy",
-        image: "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        id: 4,
-        name: "EcoStop Highway",
-        location: "Exit 42",
-        type: "CCS2 Rapid",
-        speed: "50kW",
-        price: "$0.30/kWh",
-        status: "Available",
-        image: "https://images.unsplash.com/photo-1647427060118-4911c9821b82?auto=format&fit=crop&w=600&q=80"
-    }
+// 1. DATA: Stations with Coordinates (Lat, Lng)
+// (These are sample coords around New York City for the demo)
+const defaultStations = [
+    { id: 1, name: "Tesla Supercharger", location: "Downtown Plaza", power: 250, type: "CCS2", status: "Available", lat: 40.7128, lng: -74.0060 },
+    { id: 2, name: "Ionity Fast Charge", location: "Grand Highway", power: 350, type: "CCS2", status: "Charging", lat: 40.7306, lng: -73.9352 },
+    { id: 3, name: "Shell Recharge", location: "Tech Park", power: 50, type: "Type 2", status: "Available", lat: 40.7580, lng: -73.9855 },
+    { id: 4, name: "Green Energy Hub", location: "Westside Market", power: 150, type: "CCS2", status: "Available", lat: 40.7850, lng: -73.9683 },
+    { id: 5, name: "VoltSpot", location: "Brooklyn Bridge", power: 120, type: "CCS2", status: "Available", lat: 40.7061, lng: -73.9969 }
 ];
 
-// 2. Select DOM Elements
-const grid = document.getElementById('stationGrid');
-const searchInput = document.getElementById('searchInput');
-const totalCount = document.getElementById('totalCount');
-const availableCount = document.getElementById('availableCount');
-const modal = document.getElementById('bookingModal');
-const closeBtn = document.querySelector('.close-btn');
-const bookingForm = document.getElementById('bookingForm');
+// Load from LocalStorage or use Default
+let stations = JSON.parse(localStorage.getItem('evStations')) || defaultStations;
+let map;
+let markers = [];
 
-let currentStationId = null;
+// 2. Initialize Map (Leaflet)
+function initMap() {
+    // Create map instance centered on New York
+    map = L.map('map').setView([40.7306, -73.98], 11);
 
-// 3. Render Stations Function
-function renderStations(data) {
-    grid.innerHTML = ""; // Clear existing
-    let available = 0;
+    // Add Dark Mode Map Tiles (CartoDB Dark Matter)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
 
-    data.forEach(station => {
-        if (station.status === 'Available') available++;
-
-        const card = document.createElement('div');
-        card.className = 'station-card';
-        
-        // Dynamic Badge Class (Green/Red)
-        const badgeClass = station.status === 'Available' ? 'available' : 'busy';
-        const btnState = station.status === 'Busy' ? 'disabled' : '';
-        const btnText = station.status === 'Busy' ? 'Occupied' : 'Charge Now';
-
-        card.innerHTML = `
-            <div class="card-header">
-                <span class="badge ${badgeClass}">${station.status}</span>
-                <i class="fas fa-bolt" style="color: ${station.status === 'Available' ? '#00ff9d' : '#ff4757'}"></i>
-            </div>
-            <img src="${station.image}" alt="${station.name}" class="station-img">
-            <div class="station-info">
-                <h3>${station.name}</h3>
-                <p><i class="fas fa-map-marker-alt"></i> ${station.location}</p>
-                <div class="specs">
-                    <span><i class="fas fa-plug"></i> ${station.type}</span>
-                    <span><i class="fas fa-tachometer-alt"></i> ${station.speed}</span>
-                </div>
-                <button class="btn-action" ${btnState} onclick="openModal(${station.id})">
-                    ${btnText}
-                </button>
-            </div>
-        `;
-        grid.appendChild(card);
-    });
-
-    // Update Stats
-    totalCount.textContent = data.length;
-    availableCount.textContent = available;
+    renderStations();
 }
 
-// 4. Search Filter
-searchInput.addEventListener('input', (e) => {
-    const term = e.target.value.toLowerCase();
-    const filtered = stationsData.filter(station => 
-        station.location.toLowerCase().includes(term) || 
-        station.name.toLowerCase().includes(term)
-    );
-    renderStations(filtered);
+// 3. Render List and Markers
+function renderStations(filterText = '', filterStatus = 'all') {
+    const listContainer = document.getElementById('stationList');
+    listContainer.innerHTML = ''; // Clear list
+    
+    // Clear Map Markers
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
+    let availableCount = 0;
+
+    stations.forEach(station => {
+        // Filter Logic
+        const matchesSearch = station.location.toLowerCase().includes(filterText.toLowerCase()) || 
+                              station.name.toLowerCase().includes(filterText.toLowerCase());
+        const matchesStatus = filterStatus === 'all' || station.status === filterStatus;
+
+        if (matchesSearch && matchesStatus) {
+            
+            // Stats
+            if(station.status === 'Available') availableCount++;
+
+            // A. Add to List
+            const card = document.createElement('div');
+            card.className = 'station-card';
+            const statusClass = station.status === 'Available' ? 'status-available' : 'status-charging';
+            
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="station-title">
+                        <h3>${station.name}</h3>
+                        <span class="location"><i class="fas fa-map-marker-alt"></i> ${station.location}</span>
+                    </div>
+                    <span class="status-badge ${statusClass}">${station.status}</span>
+                </div>
+                <div class="specs">
+                    <span><i class="fas fa-bolt"></i> ${station.power} kW</span>
+                    <span>• ${station.type}</span>
+                </div>
+            `;
+            
+            // Add Click Event to Zoom Map
+            card.addEventListener('click', () => {
+                map.flyTo([station.lat, station.lng], 15, { animate: true, duration: 1.5 });
+            });
+
+            listContainer.appendChild(card);
+
+            // B. Add to Map
+            // Custom Colored Markers based on Status
+            const markerColor = station.status === 'Available' ? '#00ff9d' : '#ff4757';
+            
+            const customIcon = L.divIcon({
+                className: 'custom-pin',
+                html: `<div style="background-color: ${markerColor}; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px ${markerColor};"></div>`
+            });
+
+            const marker = L.marker([station.lat, station.lng], { icon: customIcon })
+                .addTo(map)
+                .bindPopup(`<b>${station.name}</b><br>Status: ${station.status}`);
+            
+            markers.push(marker);
+        }
+    });
+
+    // Update Dashboard Stats
+    document.getElementById('totalStations').innerText = stations.length;
+    document.getElementById('totalAvailable').innerText = availableCount;
+}
+
+// 4. Search & Filter Listeners
+document.getElementById('searchInput').addEventListener('input', (e) => {
+    renderStations(e.target.value, document.getElementById('filterStatus').value);
 });
 
-// 5. Modal & Booking Logic
-window.openModal = (id) => {
-    const station = stationsData.find(s => s.id === id);
-    if (!station || station.status === 'Busy') return;
-
-    currentStationId = id;
-    document.getElementById('modalTitle').innerText = station.name;
-    document.getElementById('modalType').innerText = station.type;
-    document.getElementById('modalPrice').innerText = station.price;
-    modal.style.display = 'flex';
-};
-
-closeBtn.addEventListener('click', () => {
-    modal.style.display = 'none';
+document.getElementById('filterStatus').addEventListener('change', (e) => {
+    renderStations(document.getElementById('searchInput').value, e.target.value);
 });
 
-// Simulate Booking (Change Status to Busy)
-bookingForm.addEventListener('submit', (e) => {
+// 5. Modal & Form Logic
+const modal = document.getElementById('stationModal');
+document.getElementById('addStationBtn').onclick = () => modal.style.display = 'flex';
+document.querySelector('.close-btn').onclick = () => modal.style.display = 'none';
+window.onclick = (e) => { if (e.target == modal) modal.style.display = 'none'; };
+
+document.getElementById('stationForm').addEventListener('submit', (e) => {
     e.preventDefault();
     
-    // Update data array
-    const stationIndex = stationsData.findIndex(s => s.id === currentStationId);
-    if (stationIndex > -1) {
-        stationsData[stationIndex].status = 'Busy';
-    }
+    const newStation = {
+        id: Date.now(),
+        name: document.getElementById('nameInput').value,
+        location: document.getElementById('locationInput').value,
+        lat: parseFloat(document.getElementById('latInput').value),
+        lng: parseFloat(document.getElementById('lngInput').value),
+        power: document.getElementById('powerInput').value,
+        type: document.getElementById('typeInput').value,
+        status: "Available"
+    };
 
-    // Refresh UI
-    renderStations(stationsData);
+    stations.push(newStation);
+    localStorage.setItem('evStations', JSON.stringify(stations));
+    
+    renderStations();
     modal.style.display = 'none';
-    bookingForm.reset();
-    alert("Charging Session Started! Drive safe.");
+    e.target.reset();
 });
 
-// Close modal on outside click
-window.addEventListener('click', (e) => {
-    if (e.target == modal) modal.style.display = 'none';
-});
-
-// Initial Load
-renderStations(stationsData);
+// Start App
+initMap();
