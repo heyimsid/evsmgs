@@ -1,1 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EventHorizon | Modern Event Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+    <nav class="navbar">
+        <div class="logo">Event<span class="highlight">Horizon</span></div>
+        <button id="addEventBtn" class="btn-primary"><i class="fas fa-plus"></i> New Event</button>
+    </nav>
+
+    <header class="hero">
+        <h1>Discover <br> <span class="gradient-text">Extraordinary Events</span></h1>
+        <p>Book tickets for the biggest tech, music, and art festivals.</p>
+    </header>
+
+    <main>
+        <div class="container">
+            <h2 class="section-title">Upcoming Events</h2>
+            <div id="eventsContainer" class="events-grid">
+                </div>
+        </div>
+    </main>
+
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Create New Event</h2>
+            <form id="eventForm">
+                <input type="text" id="titleInput" placeholder="Event Name" required>
+                <input type="date" id="dateInput" required>
+                <input type="number" id="priceInput" placeholder="Price ($)" required>
+                <input type="text" id="imageInput" placeholder="Image URL (optional)" >
+                <button type="submit" class="btn-submit">Publish Event</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
