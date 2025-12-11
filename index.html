@@ -6,7 +6,6 @@
     <title>VoltGrid | EV Station Manager</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -41,11 +40,11 @@
             <option value="all">All Status</option>
             <option value="Available">Available</option>
             <option value="Charging">Occupied</option>
+            <option value="Reserved">Reserved</option>
         </select>
     </div>
 
     <div class="dashboard-container">
-        
         <div class="list-sidebar" id="stationList">
             </div>
 
@@ -60,8 +59,8 @@
                 <input type="text" id="nameInput" placeholder="Station Name" required>
                 <input type="text" id="locationInput" placeholder="Location Name" required>
                 <div class="row">
-                    <input type="number" id="latInput" placeholder="Latitude (e.g. 40.71)" step="any" required>
-                    <input type="number" id="lngInput" placeholder="Longitude (e.g. -74.00)" step="any" required>
+                    <input type="number" id="latInput" placeholder="Latitude (e.g. 28.5)" step="any" required>
+                    <input type="number" id="lngInput" placeholder="Longitude (e.g. 77.2)" step="any" required>
                 </div>
                 <div class="row">
                     <input type="number" id="powerInput" placeholder="Power (kW)" required>
@@ -76,39 +75,41 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="script.js"></script>
-    <script type="module">
-    // Import all necessary functions for modular Firebase Realtime DB
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update, set, get, child } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
-    
-    // Your web app's Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyAskkgROXJbrf6w4YYR-vb6h0mST8_qJBo",
-      authDomain: "evsmgs.firebaseapp.com",
-      projectId: "evsmgs",
-      // IMPORTANT: Ensure your databaseURL is included for Realtime DB to work
-      databaseURL: "https://evsmgs-default-rtdb.asia-southeast1.firebasedatabase.app", 
-      storageBucket: "evsmgs.firebasestorage.app",
-      messagingSenderId: "280654743662",
-      appId: "1:280654743662:web:1a7caf580fa064acfa7e7f",
-    };
 
-    // Initialize Firebase App
-    const app = initializeApp(firebaseConfig);
+    <script type="module">
+        // Import all necessary functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+        import { getDatabase, ref, onValue, update, set, get, child } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+        
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyAskkgROXJbrf6w4YYR-vb6h0mST8_qJBo",
+          authDomain: "evsmgs.firebaseapp.com",
+          projectId: "evsmgs",
+          databaseURL: "https://evsmgs-default-rtdb.asia-southeast1.firebasedatabase.app", 
+          storageBucket: "evsmgs.firebasestorage.app",
+          messagingSenderId: "280654743662",
+          appId: "1:280654743662:web:1a7caf580fa064acfa7e7f",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        // Expose necessary functions globally for script.js to use
+        window.db = db;
+        window.dbRef = ref;
+        window.dbOnValue = onValue;
+        window.dbUpdate = update;
+        window.dbSet = set;
+        window.dbGet = get;
+        window.dbChild = child;
+        
+        // 💥 FIX: Call the starting function from script.js ONLY AFTER Firebase is ready
+        if (window.startEVManager) {
+            window.startEVManager();
+        }
+    </script>
     
-    // Initialize Database Instance
-    const db = getDatabase(app);
-    
-    // Expose necessary functions globally for script.js to use (Standard practice for modules in non-framework environments)
-    window.db = db;
-    window.dbRef = ref;
-    window.dbOnValue = onValue;
-    window.dbUpdate = update;
-    window.dbSet = set;
-    window.dbGet = get;
-    window.dbChild = child;
-    
-</script>
+    <script src="script.js"></script>
 </body>
 </html>
