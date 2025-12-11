@@ -1,4 +1,4 @@
-// NOTE: This script assumes the global 'database' object is available from the V8 SDK.
+// NOTE: This script relies on the global 'database' object initialized in index.html (V8 SDK).
 
 // Initial data for seeding the database if it's empty
 const defaultStations = [
@@ -12,16 +12,13 @@ const defaultStations = [
 let map;
 let markers = [];
 let userLocationMarker;
-// NEW: Global variable to store user's detected coordinates
-let userCoords = null; 
+let userCoords = null; // Stores user's detected coordinates
 
-// Helper: Define the Firebase reference
+// Helper: Define the Firebase reference (V8 Syntax)
 const stationsRef = database.ref('stations'); 
 
-
-// --- NEW FUNCTION: DISTANCE CALCULATION (Haversine Formula) ---
+// --- DISTANCE CALCULATION (Haversine Formula) ---
 function getDistance(lat1, lon1, lat2, lon2) {
-    // R is Earth's radius in kilometers
     const R = 6371; 
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -29,10 +26,8 @@ function getDistance(lat1, lon1, lat2, lon2) {
               Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
               Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c; // Distance in km
-    return distance;
+    return R * c; // Distance in km
 }
-
 
 // 2. Initialize Map (Leaflet)
 function initMap() {
@@ -45,7 +40,7 @@ function initMap() {
     }).addTo(map);
 
     // --- GEOLOCATION FEATURE ---
-    map.locate({setView: true, maxZoom: 14, watch: true}); // watch: true keeps checking location
+    map.locate({setView: true, maxZoom: 14}); 
     map.on('locationfound', onLocationFound);
     map.on('locationerror', onLocationError);
     // ----------------------------
@@ -53,19 +48,17 @@ function initMap() {
     listenForStationUpdates();
 }
 
-// 3. UPDATED: Store user location and trigger resort
+// Store user location and trigger resort
 function onLocationFound(e) {
     const latlng = e.latlng;
     const radius = e.accuracy;
 
-    // STORE USER COORDINATES GLOBALLY
     userCoords = { lat: latlng.lat, lng: latlng.lng };
 
     if (userLocationMarker) {
         map.removeLayer(userLocationMarker);
     }
     
-    // Add a marker and circle to show user's position and accuracy
     userLocationMarker = L.marker(latlng).addTo(map)
         .bindPopup("You are here!").openPopup();
     L.circle(latlng, radius).addTo(map);
@@ -74,19 +67,18 @@ function onLocationFound(e) {
     listenForStationUpdates(); 
 }
 
-// Function to handle location access denied or failure
 function onLocationError(e) {
     console.error("Geolocation Error:", e.message);
-    // Continue running the app even if geolocation fails
 }
 
 
-// 4. CORE: Real-time Listener 
+// 3. CORE: Real-time Listener (V8 Syntax)
 function listenForStationUpdates() {
     stationsRef.on('value', (snapshot) => {
         let stationsData = snapshot.val();
         
         if (!stationsData) {
+            // Seed the database using V8 syntax
             defaultStations.forEach(station => {
                 database.ref('stations/' + station.id).set(station);
             });
@@ -95,7 +87,7 @@ function listenForStationUpdates() {
 
         let stations = Object.keys(stationsData).map(key => stationsData[key]);
         
-        // --- NEW: SORTING LOGIC ---
+        // --- PROXIMITY SORTING ---
         if (userCoords) {
             stations.forEach(station => {
                 station.distance = getDistance(
@@ -103,7 +95,6 @@ function listenForStationUpdates() {
                     station.lat, station.lng
                 );
             });
-            // Sort by distance (nearest first)
             stations.sort((a, b) => a.distance - b.distance);
         }
         // ---------------------------
@@ -116,7 +107,7 @@ function listenForStationUpdates() {
 }
 
 
-// 5. Status Transitions (Unchanged V8 logic)
+// 4. Status Transitions (V8 Syntax)
 window.handleStatusAction = (id) => {
     database.ref('stations/' + id).once('value').then((snapshot) => {
         const station = snapshot.val();
@@ -135,6 +126,7 @@ window.handleStatusAction = (id) => {
             alertMessage = `✅ Session ended. Slot is now available for others.`;
         }
         
+        // Update data in Firebase using standard V8 .update()
         database.ref('stations/' + id).update({ status: newStatus })
             .then(() => alert(alertMessage))
             .catch(error => console.error("Firebase Update Error:", error));
@@ -142,7 +134,7 @@ window.handleStatusAction = (id) => {
 };
 
 
-// 6. UPDATED RENDER: Display distance on the list
+// 5. Render List and Markers (Handles filtering and display)
 function renderStations(stations, filterText, filterStatus) {
     const listContainer = document.getElementById('stationList');
     listContainer.innerHTML = '';
@@ -153,7 +145,7 @@ function renderStations(stations, filterText, filterStatus) {
     let availableCount = 0;
 
     stations.forEach(station => {
-        // Filtering Logic (Still respects search/filter inputs)
+        // Filtering Logic
         const matchesSearch = station.location.toLowerCase().includes(filterText.toLowerCase()) || 
                               station.name.toLowerCase().includes(filterText.toLowerCase());
         const matchesStatus = filterStatus === 'all' || station.status === filterStatus;
@@ -177,6 +169,7 @@ function renderStations(stations, filterText, filterStatus) {
                 statusClass = 'status-charging';
             }
 
+            // Display distance if available
             const distanceText = station.distance ? 
                 `<span class="distance-text"><i class="fas fa-route"></i> ${station.distance.toFixed(1)} km</span>` : 
                 '';
@@ -221,7 +214,7 @@ function renderStations(stations, filterText, filterStatus) {
 
             const marker = L.marker([station.lat, station.lng], { icon: customIcon })
                 .addTo(map)
-                .bindPopup(`<b>${station.name}</b><br>Status: ${station.status} ${distanceText}`);
+                .bindPopup(`<b>${station.name}</b><br>Status: ${station.status}`);
             
             markers.push(marker);
         }
@@ -231,7 +224,7 @@ function renderStations(stations, filterText, filterStatus) {
     document.getElementById('totalAvailable').innerText = availableCount;
 }
 
-// 7. Event Listeners (Unchanged)
+// 6. Event Listeners
 document.getElementById('searchInput').addEventListener('input', () => {
     listenForStationUpdates(); 
 });
@@ -261,6 +254,7 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         status: "Available"
     };
 
+    // Use V8 .set() to push data
     database.ref('stations/' + newStationId).set(newStation)
         .then(() => {
             modal.style.display = 'none';
@@ -270,5 +264,5 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         .catch(error => console.error("Error deploying station:", error));
 });
 
-// 8. FINAL ENTRY POINT
+// 7. FINAL ENTRY POINT
 initMap();
