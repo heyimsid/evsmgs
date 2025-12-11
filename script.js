@@ -1,5 +1,5 @@
-// NOTE: This script assumes you have successfully exposed the modular Firebase functions 
-// to the window object in your index.html file (Step 1).
+// NOTE: This script assumes the Firebase functions are successfully exposed
+// to the window object in your index.html file.
 
 // Initial data for seeding the database if it's empty
 const defaultStations = [
@@ -12,12 +12,15 @@ const defaultStations = [
 
 let map;
 let markers = [];
-// Define the reference using the modular functions
+let userLocationMarker; // To store the user's current location marker
+
+// Helper: Define the Firebase reference
 const stationsRef = window.dbRef(window.db, 'stations'); 
 
 // 2. Initialize Map (Leaflet)
 function initMap() {
-    map = L.map('map').setView([28.6139, 77.2090], 10); 
+    // Initial view set to India (Delhi NCR) as a fallback
+    map = L.map('map').setView([28.6139, 77.2090], 5); 
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
@@ -25,11 +28,48 @@ function initMap() {
         maxZoom: 19
     }).addTo(map);
 
+    // --- GEOLOCATION FEATURE ---
+    // 1. Try to get the user's real location
+    map.locate({setView: true, maxZoom: 14}); 
+
+    // 2. Handle successful location found
+    map.on('locationfound', onLocationFound);
+
+    // 3. Handle location error
+    map.on('locationerror', onLocationError);
+    // ----------------------------
+
     // Start listening to the database
     listenForStationUpdates();
 }
 
-// 3. CORE CHANGE: Real-time Listener (Using dbOnValue)
+// Function to handle successful location access
+function onLocationFound(e) {
+    const latlng = e.latlng;
+    const radius = e.accuracy;
+
+    // Remove old marker if it exists
+    if (userLocationMarker) {
+        map.removeLayer(userLocationMarker);
+    }
+    
+    // Add a marker and circle to show user's position and accuracy
+    userLocationMarker = L.marker(latlng).addTo(map)
+        .bindPopup("You are here!").openPopup();
+    L.circle(latlng, radius).addTo(map);
+    
+    // Optional: Log location for debug
+    console.log(`User located at: ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
+}
+
+// Function to handle location access denied or failure
+function onLocationError(e) {
+    console.error("Geolocation Error:", e.message);
+    alert("Could not detect your location. Showing default map view.");
+}
+
+
+// 3. CORE CHANGE: Real-time Listener 
 function listenForStationUpdates() {
     window.dbOnValue(stationsRef, (snapshot) => {
         let stationsData = snapshot.val();
@@ -52,7 +92,7 @@ function listenForStationUpdates() {
 }
 
 
-// 4. CORE LOGIC: Status Transitions (Using dbGet and dbUpdate)
+// 4. CORE LOGIC: Status Transitions (Now writes to Firebase)
 window.handleStatusAction = async (id) => {
     // Fetch data once to confirm current status before update
     const snapshot = await window.dbGet(window.dbRef(window.db, 'stations/' + id));
@@ -82,7 +122,7 @@ window.handleStatusAction = async (id) => {
 };
 
 
-// 5. Render List and Markers (Unchanged logic)
+// 5. Render List and Markers 
 function renderStations(stations, filterText, filterStatus) {
     const listContainer = document.getElementById('stationList');
     listContainer.innerHTML = '';
@@ -209,5 +249,14 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         .catch(error => console.error("Error deploying station:", error));
 });
 
-// Start App
-initMap();
+// 8. FINAL ENTRY POINT (The structural fix)
+window.startEVManager = function() {
+    console.log("Firebase initialized. Starting Map...");
+    initMap();
+};
+// ----------------------------------------------------------------------------------
+This video demonstrates how to use Leaflet to get the user's current location and display it on the map.
+[Leaflet geolocation | Find current location of user | GeoDev](https://www.youtube.com/watch?v=FaABCCKf97c)
+
+
+http://googleusercontent.com/youtube_content/4
