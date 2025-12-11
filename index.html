@@ -77,5 +77,38 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="script.js"></script>
+    <script type="module">
+    // Import all necessary functions for modular Firebase Realtime DB
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+    import { getDatabase, ref, onValue, update, set, get, child } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+    
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAskkgROXJbrf6w4YYR-vb6h0mST8_qJBo",
+      authDomain: "evsmgs.firebaseapp.com",
+      projectId: "evsmgs",
+      // IMPORTANT: Ensure your databaseURL is included for Realtime DB to work
+      databaseURL: "https://evsmgs-default-rtdb.asia-southeast1.firebasedatabase.app", 
+      storageBucket: "evsmgs.firebasestorage.app",
+      messagingSenderId: "280654743662",
+      appId: "1:280654743662:web:1a7caf580fa064acfa7e7f",
+    };
+
+    // Initialize Firebase App
+    const app = initializeApp(firebaseConfig);
+    
+    // Initialize Database Instance
+    const db = getDatabase(app);
+    
+    // Expose necessary functions globally for script.js to use (Standard practice for modules in non-framework environments)
+    window.db = db;
+    window.dbRef = ref;
+    window.dbOnValue = onValue;
+    window.dbUpdate = update;
+    window.dbSet = set;
+    window.dbGet = get;
+    window.dbChild = child;
+    
+</script>
 </body>
 </html>
