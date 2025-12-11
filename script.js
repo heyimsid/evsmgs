@@ -1,4 +1,5 @@
 // NOTE: This script assumes the global 'database' object is available from the V8 SDK.
+
 // Initial data for seeding the database if it's empty
 const defaultStations = [
     { id: 101, name: "Tata Power EZ Charge", location: "Bandra Kurla Complex, Mumbai", power: 100, type: "CCS2", status: "Available", lat: 19.0573, lng: 72.8647 },
@@ -11,13 +12,30 @@ const defaultStations = [
 let map;
 let markers = [];
 let userLocationMarker;
+// NEW: Global variable to store user's detected coordinates
+let userCoords = null; 
 
-// Helper: Define the Firebase reference using the stable V8 syntax
+// Helper: Define the Firebase reference
 const stationsRef = database.ref('stations'); 
+
+
+// --- NEW FUNCTION: DISTANCE CALCULATION (Haversine Formula) ---
+function getDistance(lat1, lon1, lat2, lon2) {
+    // R is Earth's radius in kilometers
+    const R = 6371; 
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c; // Distance in km
+    return distance;
+}
+
 
 // 2. Initialize Map (Leaflet)
 function initMap() {
-    // Initial view set to India (Delhi NCR) as a fallback
     map = L.map('map').setView([28.6139, 77.2090], 5); 
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -27,19 +45,21 @@ function initMap() {
     }).addTo(map);
 
     // --- GEOLOCATION FEATURE ---
-    map.locate({setView: true, maxZoom: 14}); 
+    map.locate({setView: true, maxZoom: 14, watch: true}); // watch: true keeps checking location
     map.on('locationfound', onLocationFound);
     map.on('locationerror', onLocationError);
     // ----------------------------
 
-    // Start listening to the database
     listenForStationUpdates();
 }
 
-// Function to handle successful location access
+// 3. UPDATED: Store user location and trigger resort
 function onLocationFound(e) {
     const latlng = e.latlng;
     const radius = e.accuracy;
+
+    // STORE USER COORDINATES GLOBALLY
+    userCoords = { lat: latlng.lat, lng: latlng.lng };
 
     if (userLocationMarker) {
         map.removeLayer(userLocationMarker);
@@ -49,32 +69,45 @@ function onLocationFound(e) {
     userLocationMarker = L.marker(latlng).addTo(map)
         .bindPopup("You are here!").openPopup();
     L.circle(latlng, radius).addTo(map);
+    
+    // Trigger a full update to sort by distance
+    listenForStationUpdates(); 
 }
 
 // Function to handle location access denied or failure
 function onLocationError(e) {
     console.error("Geolocation Error:", e.message);
-    // You can add a subtle alert here if needed
+    // Continue running the app even if geolocation fails
 }
 
 
-// 3. CORE CHANGE: Real-time Listener (V8 Syntax)
+// 4. CORE: Real-time Listener 
 function listenForStationUpdates() {
-    // This runs every time data changes in Firebase
     stationsRef.on('value', (snapshot) => {
         let stationsData = snapshot.val();
         
         if (!stationsData) {
-            // Seed the database if empty
             defaultStations.forEach(station => {
                 database.ref('stations/' + station.id).set(station);
             });
             return;
         }
 
-        // Convert Firebase object structure into a usable array
-        const stations = Object.keys(stationsData).map(key => stationsData[key]);
+        let stations = Object.keys(stationsData).map(key => stationsData[key]);
         
+        // --- NEW: SORTING LOGIC ---
+        if (userCoords) {
+            stations.forEach(station => {
+                station.distance = getDistance(
+                    userCoords.lat, userCoords.lng,
+                    station.lat, station.lng
+                );
+            });
+            // Sort by distance (nearest first)
+            stations.sort((a, b) => a.distance - b.distance);
+        }
+        // ---------------------------
+
         const filterText = document.getElementById('searchInput').value || '';
         const filterStatus = document.getElementById('filterStatus').value || 'all';
         
@@ -83,9 +116,8 @@ function listenForStationUpdates() {
 }
 
 
-// 4. CORE LOGIC: Status Transitions (V8 Syntax)
+// 5. Status Transitions (Unchanged V8 logic)
 window.handleStatusAction = (id) => {
-    // Use .once() to fetch current data before updating
     database.ref('stations/' + id).once('value').then((snapshot) => {
         const station = snapshot.val();
         if (!station) return;
@@ -103,7 +135,6 @@ window.handleStatusAction = (id) => {
             alertMessage = `✅ Session ended. Slot is now available for others.`;
         }
         
-        // Update data in Firebase using standard V8 .update()
         database.ref('stations/' + id).update({ status: newStatus })
             .then(() => alert(alertMessage))
             .catch(error => console.error("Firebase Update Error:", error));
@@ -111,7 +142,7 @@ window.handleStatusAction = (id) => {
 };
 
 
-// 5. Render List and Markers (Logic Unchanged)
+// 6. UPDATED RENDER: Display distance on the list
 function renderStations(stations, filterText, filterStatus) {
     const listContainer = document.getElementById('stationList');
     listContainer.innerHTML = '';
@@ -122,7 +153,7 @@ function renderStations(stations, filterText, filterStatus) {
     let availableCount = 0;
 
     stations.forEach(station => {
-        // Filtering Logic
+        // Filtering Logic (Still respects search/filter inputs)
         const matchesSearch = station.location.toLowerCase().includes(filterText.toLowerCase()) || 
                               station.name.toLowerCase().includes(filterText.toLowerCase());
         const matchesStatus = filterStatus === 'all' || station.status === filterStatus;
@@ -146,6 +177,9 @@ function renderStations(stations, filterText, filterStatus) {
                 statusClass = 'status-charging';
             }
 
+            const distanceText = station.distance ? 
+                `<span class="distance-text"><i class="fas fa-route"></i> ${station.distance.toFixed(1)} km</span>` : 
+                '';
 
             const card = document.createElement('div');
             card.className = 'station-card';
@@ -154,7 +188,7 @@ function renderStations(stations, filterText, filterStatus) {
                 <div class="card-header">
                     <div class="station-title">
                         <h3>${station.name}</h3>
-                        <span class="location"><i class="fas fa-map-marker-alt"></i> ${station.location}</span>
+                        <span class="location"><i class="fas fa-map-marker-alt"></i> ${station.location} ${distanceText}</span>
                     </div>
                     <span class="status-badge ${statusClass}">${station.status}</span>
                 </div>
@@ -187,7 +221,7 @@ function renderStations(stations, filterText, filterStatus) {
 
             const marker = L.marker([station.lat, station.lng], { icon: customIcon })
                 .addTo(map)
-                .bindPopup(`<b>${station.name}</b><br>Status: ${station.status}`);
+                .bindPopup(`<b>${station.name}</b><br>Status: ${station.status} ${distanceText}`);
             
             markers.push(marker);
         }
@@ -197,7 +231,7 @@ function renderStations(stations, filterText, filterStatus) {
     document.getElementById('totalAvailable').innerText = availableCount;
 }
 
-// 6. Search & Filter Listeners
+// 7. Event Listeners (Unchanged)
 document.getElementById('searchInput').addEventListener('input', () => {
     listenForStationUpdates(); 
 });
@@ -206,7 +240,6 @@ document.getElementById('filterStatus').addEventListener('change', () => {
     listenForStationUpdates();
 });
 
-// 7. Modal & Form Logic (V8 Syntax)
 const modal = document.getElementById('stationModal');
 document.getElementById('addStationBtn').onclick = () => modal.style.display = 'flex';
 document.querySelector('.close-btn').onclick = () => modal.style.display = 'none';
@@ -228,7 +261,6 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         status: "Available"
     };
 
-    // Use V8 .set() to push data
     database.ref('stations/' + newStationId).set(newStation)
         .then(() => {
             modal.style.display = 'none';
