@@ -6,11 +6,12 @@
     <title>VoltGrid | EV Station Manager</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
-    <link rel="stylesheet" href="style.css"> 
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -40,13 +41,14 @@
             <option value="all">All Status</option>
             <option value="Available">Available</option>
             <option value="Charging">Occupied</option>
-            <option value="Reserved">Reserved</option>
         </select>
     </div>
 
     <div class="dashboard-container">
+        
         <div class="list-sidebar" id="stationList">
             </div>
+
         <div id="map"></div>
     </div>
 
@@ -58,8 +60,8 @@
                 <input type="text" id="nameInput" placeholder="Station Name" required>
                 <input type="text" id="locationInput" placeholder="Location Name" required>
                 <div class="row">
-                    <input type="number" id="latInput" placeholder="Latitude (e.g. 28.5)" step="any" required>
-                    <input type="number" id="lngInput" placeholder="Longitude (e.g. 77.2)" step="any" required>
+                    <input type="number" id="latInput" placeholder="Latitude (e.g. 40.71)" step="any" required>
+                    <input type="number" id="lngInput" placeholder="Longitude (e.g. -74.00)" step="any" required>
                 </div>
                 <div class="row">
                     <input type="number" id="powerInput" placeholder="Power (kW)" required>
@@ -74,28 +76,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
-    <script>
-        const firebaseConfig = {
-          // ENSURE YOUR KEYS ARE HERE
-          apiKey: "AIzaSyAskkgROXJbrf6w4YYR-vb6h0mST8_qJBo",
-          authDomain: "evsmgs.firebaseapp.com",
-          projectId: "evsmgs",
-          // IMPORTANT: Your databaseURL must be in this config object
-          databaseURL: "https://evsmgs-default-rtdb.asia-southeast1.firebasedatabase.app", 
-          storageBucket: "evsmgs.firebasestorage.app",
-          messagingSenderId: "280654743662",
-          appId: "1:280654743662:web:1a7caf580fa064acfa7e7f",
-        };
-
-        // Initialize Firebase and get the database instance
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database(); // This is the stable V8 syntax
-    </script>
-    
     <script src="script.js"></script>
 </body>
 </html>
