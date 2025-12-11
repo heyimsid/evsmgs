@@ -1,4 +1,5 @@
-// NOTE: This script relies on the global 'database' object initialized in index.html (V8 SDK).
+// NOTE: This script assumes you have successfully exposed the modular Firebase functions 
+// to the window object in your index.html file (Step 1).
 
 // Initial data for seeding the database if it's empty
 const defaultStations = [
@@ -11,27 +12,12 @@ const defaultStations = [
 
 let map;
 let markers = [];
-let userLocationMarker;
-let userCoords = null; // Stores user's detected coordinates
-
-// Helper: Define the Firebase reference (V8 Syntax)
-const stationsRef = database.ref('stations'); 
-
-// --- DISTANCE CALCULATION (Haversine Formula) ---
-function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; 
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distance in km
-}
+// Define the reference using the modular functions
+const stationsRef = window.dbRef(window.db, 'stations'); 
 
 // 2. Initialize Map (Leaflet)
 function initMap() {
-    map = L.map('map').setView([28.6139, 77.2090], 5); 
+    map = L.map('map').setView([28.6139, 77.2090], 10); 
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
@@ -39,66 +25,25 @@ function initMap() {
         maxZoom: 19
     }).addTo(map);
 
-    // --- GEOLOCATION FEATURE ---
-    map.locate({setView: true, maxZoom: 14}); 
-    map.on('locationfound', onLocationFound);
-    map.on('locationerror', onLocationError);
-    // ----------------------------
-
+    // Start listening to the database
     listenForStationUpdates();
 }
 
-// Store user location and trigger resort
-function onLocationFound(e) {
-    const latlng = e.latlng;
-    const radius = e.accuracy;
-
-    userCoords = { lat: latlng.lat, lng: latlng.lng };
-
-    if (userLocationMarker) {
-        map.removeLayer(userLocationMarker);
-    }
-    
-    userLocationMarker = L.marker(latlng).addTo(map)
-        .bindPopup("You are here!").openPopup();
-    L.circle(latlng, radius).addTo(map);
-    
-    // Trigger a full update to sort by distance
-    listenForStationUpdates(); 
-}
-
-function onLocationError(e) {
-    console.error("Geolocation Error:", e.message);
-}
-
-
-// 3. CORE: Real-time Listener (V8 Syntax)
+// 3. CORE CHANGE: Real-time Listener (Using dbOnValue)
 function listenForStationUpdates() {
-    stationsRef.on('value', (snapshot) => {
+    window.dbOnValue(stationsRef, (snapshot) => {
         let stationsData = snapshot.val();
         
         if (!stationsData) {
-            // Seed the database using V8 syntax
+            // Seed the database if empty
             defaultStations.forEach(station => {
-                database.ref('stations/' + station.id).set(station);
+                window.dbSet(window.dbRef(window.db, 'stations/' + station.id), station);
             });
             return;
         }
 
-        let stations = Object.keys(stationsData).map(key => stationsData[key]);
+        const stations = Object.keys(stationsData).map(key => stationsData[key]);
         
-        // --- PROXIMITY SORTING ---
-        if (userCoords) {
-            stations.forEach(station => {
-                station.distance = getDistance(
-                    userCoords.lat, userCoords.lng,
-                    station.lat, station.lng
-                );
-            });
-            stations.sort((a, b) => a.distance - b.distance);
-        }
-        // ---------------------------
-
         const filterText = document.getElementById('searchInput').value || '';
         const filterStatus = document.getElementById('filterStatus').value || 'all';
         
@@ -107,34 +52,37 @@ function listenForStationUpdates() {
 }
 
 
-// 4. Status Transitions (V8 Syntax)
-window.handleStatusAction = (id) => {
-    database.ref('stations/' + id).once('value').then((snapshot) => {
-        const station = snapshot.val();
-        if (!station) return;
+// 4. CORE LOGIC: Status Transitions (Using dbGet and dbUpdate)
+window.handleStatusAction = async (id) => {
+    // Fetch data once to confirm current status before update
+    const snapshot = await window.dbGet(window.dbRef(window.db, 'stations/' + id));
+    const station = snapshot.val();
+    
+    if (!station) return;
 
-        let newStatus, alertMessage;
+    let newStatus, alertMessage;
 
-        if (station.status === 'Available') {
-            newStatus = 'Reserved';
-            alertMessage = `⚡ Slot at ${station.name} is reserved! (Updating for all users)`;
-        } else if (station.status === 'Reserved') {
-            newStatus = 'Charging';
-            alertMessage = `🔋 Charging session started!`;
-        } else if (station.status === 'Charging') {
-            newStatus = 'Available';
-            alertMessage = `✅ Session ended. Slot is now available for others.`;
-        }
-        
-        // Update data in Firebase using standard V8 .update()
-        database.ref('stations/' + id).update({ status: newStatus })
-            .then(() => alert(alertMessage))
-            .catch(error => console.error("Firebase Update Error:", error));
-    });
+    if (station.status === 'Available') {
+        newStatus = 'Reserved';
+        alertMessage = `⚡ Slot at ${station.name} is reserved! (Updating for all users)`;
+    } else if (station.status === 'Reserved') {
+        newStatus = 'Charging';
+        alertMessage = `🔋 Charging session started!`;
+    } else if (station.status === 'Charging') {
+        newStatus = 'Available';
+        alertMessage = `✅ Session ended. Slot is now available for others.`;
+    }
+    
+    // Update data in Firebase using modular dbUpdate
+    window.dbUpdate(window.dbRef(window.db, 'stations/' + id), { status: newStatus })
+        .then(() => alert(alertMessage))
+        .catch(error => console.error("Firebase Update Error:", error));
+    
+    // The dbOnValue listener will automatically trigger renderStations.
 };
 
 
-// 5. Render List and Markers (Handles filtering and display)
+// 5. Render List and Markers (Unchanged logic)
 function renderStations(stations, filterText, filterStatus) {
     const listContainer = document.getElementById('stationList');
     listContainer.innerHTML = '';
@@ -169,10 +117,6 @@ function renderStations(stations, filterText, filterStatus) {
                 statusClass = 'status-charging';
             }
 
-            // Display distance if available
-            const distanceText = station.distance ? 
-                `<span class="distance-text"><i class="fas fa-route"></i> ${station.distance.toFixed(1)} km</span>` : 
-                '';
 
             const card = document.createElement('div');
             card.className = 'station-card';
@@ -181,7 +125,7 @@ function renderStations(stations, filterText, filterStatus) {
                 <div class="card-header">
                     <div class="station-title">
                         <h3>${station.name}</h3>
-                        <span class="location"><i class="fas fa-map-marker-alt"></i> ${station.location} ${distanceText}</span>
+                        <span class="location"><i class="fas fa-map-marker-alt"></i> ${station.location}</span>
                     </div>
                     <span class="status-badge ${statusClass}">${station.status}</span>
                 </div>
@@ -224,7 +168,7 @@ function renderStations(stations, filterText, filterStatus) {
     document.getElementById('totalAvailable').innerText = availableCount;
 }
 
-// 6. Event Listeners
+// 6. Search & Filter Listeners (Triggers the listener to re-render)
 document.getElementById('searchInput').addEventListener('input', () => {
     listenForStationUpdates(); 
 });
@@ -233,6 +177,7 @@ document.getElementById('filterStatus').addEventListener('change', () => {
     listenForStationUpdates();
 });
 
+// 7. Modal & Form Logic (Using dbSet)
 const modal = document.getElementById('stationModal');
 document.getElementById('addStationBtn').onclick = () => modal.style.display = 'flex';
 document.querySelector('.close-btn').onclick = () => modal.style.display = 'none';
@@ -254,8 +199,8 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         status: "Available"
     };
 
-    // Use V8 .set() to push data
-    database.ref('stations/' + newStationId).set(newStation)
+    // Use modular dbSet to push data
+    window.dbSet(window.dbRef(window.db, 'stations/' + newStationId), newStation)
         .then(() => {
             modal.style.display = 'none';
             e.target.reset();
@@ -264,5 +209,5 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         .catch(error => console.error("Error deploying station:", error));
 });
 
-// 7. FINAL ENTRY POINT
+// Start App
 initMap();
