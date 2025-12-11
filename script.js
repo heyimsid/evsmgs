@@ -1,6 +1,4 @@
-// NOTE: This script assumes the Firebase functions are successfully exposed
-// to the window object in your index.html file.
-
+// NOTE: This script assumes the global 'database' object is available from the V8 SDK.
 // Initial data for seeding the database if it's empty
 const defaultStations = [
     { id: 101, name: "Tata Power EZ Charge", location: "Bandra Kurla Complex, Mumbai", power: 100, type: "CCS2", status: "Available", lat: 19.0573, lng: 72.8647 },
@@ -12,10 +10,10 @@ const defaultStations = [
 
 let map;
 let markers = [];
-let userLocationMarker; // To store the user's current location marker
+let userLocationMarker;
 
-// Helper: Define the Firebase reference
-const stationsRef = window.dbRef(window.db, 'stations'); 
+// Helper: Define the Firebase reference using the stable V8 syntax
+const stationsRef = database.ref('stations'); 
 
 // 2. Initialize Map (Leaflet)
 function initMap() {
@@ -29,13 +27,8 @@ function initMap() {
     }).addTo(map);
 
     // --- GEOLOCATION FEATURE ---
-    // 1. Try to get the user's real location
     map.locate({setView: true, maxZoom: 14}); 
-
-    // 2. Handle successful location found
     map.on('locationfound', onLocationFound);
-
-    // 3. Handle location error
     map.on('locationerror', onLocationError);
     // ----------------------------
 
@@ -48,7 +41,6 @@ function onLocationFound(e) {
     const latlng = e.latlng;
     const radius = e.accuracy;
 
-    // Remove old marker if it exists
     if (userLocationMarker) {
         map.removeLayer(userLocationMarker);
     }
@@ -57,31 +49,30 @@ function onLocationFound(e) {
     userLocationMarker = L.marker(latlng).addTo(map)
         .bindPopup("You are here!").openPopup();
     L.circle(latlng, radius).addTo(map);
-    
-    // Optional: Log location for debug
-    console.log(`User located at: ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
 }
 
 // Function to handle location access denied or failure
 function onLocationError(e) {
     console.error("Geolocation Error:", e.message);
-    alert("Could not detect your location. Showing default map view.");
+    // You can add a subtle alert here if needed
 }
 
 
-// 3. CORE CHANGE: Real-time Listener 
+// 3. CORE CHANGE: Real-time Listener (V8 Syntax)
 function listenForStationUpdates() {
-    window.dbOnValue(stationsRef, (snapshot) => {
+    // This runs every time data changes in Firebase
+    stationsRef.on('value', (snapshot) => {
         let stationsData = snapshot.val();
         
         if (!stationsData) {
             // Seed the database if empty
             defaultStations.forEach(station => {
-                window.dbSet(window.dbRef(window.db, 'stations/' + station.id), station);
+                database.ref('stations/' + station.id).set(station);
             });
             return;
         }
 
+        // Convert Firebase object structure into a usable array
         const stations = Object.keys(stationsData).map(key => stationsData[key]);
         
         const filterText = document.getElementById('searchInput').value || '';
@@ -92,37 +83,35 @@ function listenForStationUpdates() {
 }
 
 
-// 4. CORE LOGIC: Status Transitions (Now writes to Firebase)
-window.handleStatusAction = async (id) => {
-    // Fetch data once to confirm current status before update
-    const snapshot = await window.dbGet(window.dbRef(window.db, 'stations/' + id));
-    const station = snapshot.val();
-    
-    if (!station) return;
+// 4. CORE LOGIC: Status Transitions (V8 Syntax)
+window.handleStatusAction = (id) => {
+    // Use .once() to fetch current data before updating
+    database.ref('stations/' + id).once('value').then((snapshot) => {
+        const station = snapshot.val();
+        if (!station) return;
 
-    let newStatus, alertMessage;
+        let newStatus, alertMessage;
 
-    if (station.status === 'Available') {
-        newStatus = 'Reserved';
-        alertMessage = `⚡ Slot at ${station.name} is reserved! (Updating for all users)`;
-    } else if (station.status === 'Reserved') {
-        newStatus = 'Charging';
-        alertMessage = `🔋 Charging session started!`;
-    } else if (station.status === 'Charging') {
-        newStatus = 'Available';
-        alertMessage = `✅ Session ended. Slot is now available for others.`;
-    }
-    
-    // Update data in Firebase using modular dbUpdate
-    window.dbUpdate(window.dbRef(window.db, 'stations/' + id), { status: newStatus })
-        .then(() => alert(alertMessage))
-        .catch(error => console.error("Firebase Update Error:", error));
-    
-    // The dbOnValue listener will automatically trigger renderStations.
+        if (station.status === 'Available') {
+            newStatus = 'Reserved';
+            alertMessage = `⚡ Slot at ${station.name} is reserved! (Updating for all users)`;
+        } else if (station.status === 'Reserved') {
+            newStatus = 'Charging';
+            alertMessage = `🔋 Charging session started!`;
+        } else if (station.status === 'Charging') {
+            newStatus = 'Available';
+            alertMessage = `✅ Session ended. Slot is now available for others.`;
+        }
+        
+        // Update data in Firebase using standard V8 .update()
+        database.ref('stations/' + id).update({ status: newStatus })
+            .then(() => alert(alertMessage))
+            .catch(error => console.error("Firebase Update Error:", error));
+    });
 };
 
 
-// 5. Render List and Markers 
+// 5. Render List and Markers (Logic Unchanged)
 function renderStations(stations, filterText, filterStatus) {
     const listContainer = document.getElementById('stationList');
     listContainer.innerHTML = '';
@@ -208,7 +197,7 @@ function renderStations(stations, filterText, filterStatus) {
     document.getElementById('totalAvailable').innerText = availableCount;
 }
 
-// 6. Search & Filter Listeners (Triggers the listener to re-render)
+// 6. Search & Filter Listeners
 document.getElementById('searchInput').addEventListener('input', () => {
     listenForStationUpdates(); 
 });
@@ -217,7 +206,7 @@ document.getElementById('filterStatus').addEventListener('change', () => {
     listenForStationUpdates();
 });
 
-// 7. Modal & Form Logic (Using dbSet)
+// 7. Modal & Form Logic (V8 Syntax)
 const modal = document.getElementById('stationModal');
 document.getElementById('addStationBtn').onclick = () => modal.style.display = 'flex';
 document.querySelector('.close-btn').onclick = () => modal.style.display = 'none';
@@ -239,8 +228,8 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         status: "Available"
     };
 
-    // Use modular dbSet to push data
-    window.dbSet(window.dbRef(window.db, 'stations/' + newStationId), newStation)
+    // Use V8 .set() to push data
+    database.ref('stations/' + newStationId).set(newStation)
         .then(() => {
             modal.style.display = 'none';
             e.target.reset();
@@ -249,14 +238,5 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         .catch(error => console.error("Error deploying station:", error));
 });
 
-// 8. FINAL ENTRY POINT (The structural fix)
-window.startEVManager = function() {
-    console.log("Firebase initialized. Starting Map...");
-    initMap();
-};
-// ----------------------------------------------------------------------------------
-This video demonstrates how to use Leaflet to get the user's current location and display it on the map.
-[Leaflet geolocation | Find current location of user | GeoDev](https://www.youtube.com/watch?v=FaABCCKf97c)
-
-
-http://googleusercontent.com/youtube_content/4
+// 8. FINAL ENTRY POINT
+initMap();
