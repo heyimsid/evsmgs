@@ -10,7 +10,7 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
 
@@ -47,7 +47,6 @@
     <div class="dashboard-container">
         <div class="list-sidebar" id="stationList">
             </div>
-
         <div id="map"></div>
     </div>
 
@@ -76,25 +75,38 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
-    <script>
+    <script type="module">
+        // Import all necessary functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+        import { getDatabase, ref, onValue, update, set, get, child } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+        
+        // Your web app's Firebase configuration
         const firebaseConfig = {
-          // ENSURE YOUR KEYS ARE HERE
           apiKey: "AIzaSyAskkgROXJbrf6w4YYR-vb6h0mST8_qJBo",
           authDomain: "evsmgs.firebaseapp.com",
           projectId: "evsmgs",
-          // IMPORTANT: Your databaseURL must be in this config object
           databaseURL: "https://evsmgs-default-rtdb.asia-southeast1.firebasedatabase.app", 
           storageBucket: "evsmgs.firebasestorage.app",
           messagingSenderId: "280654743662",
           appId: "1:280654743662:web:1a7caf580fa064acfa7e7f",
         };
 
-        // Initialize Firebase and get the database instance
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database(); // This is the old, stable syntax
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        // Expose necessary functions globally for script.js to use
+        window.db = db;
+        window.dbRef = ref;
+        window.dbOnValue = onValue;
+        window.dbUpdate = update;
+        window.dbSet = set;
+        window.dbGet = get;
+        window.dbChild = child;
+        
+        // Final Fix: Call the starting function from script.js ONLY AFTER Firebase is ready
+        if (window.startEVManager) {
+            window.startEVManager();
+        }
     </script>
     
     <script src="script.js"></script>
