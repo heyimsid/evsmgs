@@ -1,78 +1,89 @@
-// 1. UPDATED DATA: Real-world Indian Locations with Approximate Coordinates
-// Data includes stations from major networks like Tata Power and Statiq.
+// NOTE: This script assumes you have successfully exposed the modular Firebase functions 
+// to the window object in your index.html file (Step 1).
+
+// Initial data for seeding the database if it's empty
 const defaultStations = [
-    // --- Mumbai / Maharashtra ---
-    { id: 101, name: "Tata Power EZ Charge", location: "BKC, Mumbai (Reliance Jio)", power: 100, type: "CCS2", status: "Available", lat: 19.0573, lng: 72.8647 },
+    { id: 101, name: "Tata Power EZ Charge", location: "Bandra Kurla Complex, Mumbai", power: 100, type: "CCS2", status: "Available", lat: 19.0573, lng: 72.8647 },
     { id: 102, name: "Statiq Hub", location: "Phoenix Marketcity, Kurla", power: 60, type: "CCS2", status: "Charging", lat: 19.0888, lng: 72.9069 },
-    { id: 103, name: "ChargeZone DC Fast", location: "Lonavala Food Mall (Highway)", power: 120, type: "CCS2", status: "Reserved", lat: 18.7758, lng: 73.4093 },
-    
-    // --- Delhi NCR ---
-    { id: 201, name: "Fortum Charge & Drive", location: "Select Citywalk, Saket", power: 50, type: "CCS2", status: "Available", lat: 28.5273, lng: 77.2155 },
-    { id: 202, name: "GLIDA EV Station", location: "DLF Cyber Hub, Gurgaon", power: 30, type: "Type 2", status: "Available", lat: 28.4905, lng: 77.0877 },
-    { id: 203, name: "Tata Power Charging", location: "Noida Sector 62", power: 25, type: "Type 2", status: "Charging", lat: 28.6256, lng: 77.3752 },
-    
-    // --- Bangalore / Karnataka ---
+    { id: 201, name: "Fortum Charge & Drive", location: "Select Citywalk, Saket, Delhi", power: 50, type: "CCS2", status: "Available", lat: 28.5273, lng: 77.2155 },
     { id: 301, name: "Ather Grid (Fast)", location: "Koramangala, Bangalore", power: 25, type: "Type 2", status: "Available", lat: 12.9345, lng: 77.6186 },
-    { id: 302, name: "Magenta ChargeGrid", location: "Electronic City Phase 1", power: 150, type: "CCS2", status: "Available", lat: 12.8465, lng: 77.6749 },
-    { id: 303, name: "Statiq DC Hub", location: "Whitefield Road, Bangalore", power: 60, type: "CCS2", status: "Reserved", lat: 12.9698, lng: 77.7499 }
+    { id: 302, name: "Magenta ChargeGrid", location: "Electronic City Phase 1, Bangalore", power: 150, type: "CCS2", status: "Available", lat: 12.8465, lng: 77.6749 },
 ];
 
-let stations = JSON.parse(localStorage.getItem('evStations')) || defaultStations;
 let map;
 let markers = [];
+// Define the reference using the modular functions
+const stationsRef = window.dbRef(window.db, 'stations'); 
 
-// Helper: Save to LocalStorage
-function saveData() {
-    localStorage.setItem('evStations', JSON.stringify(stations));
-}
-
-// 2. Initialize Map (Leaflet) - Centered on Delhi (NCR)
+// 2. Initialize Map (Leaflet)
 function initMap() {
-    // Centered near Delhi for a good view of the northern stations
     map = L.map('map').setView([28.6139, 77.2090], 10); 
 
-    // Add Dark Mode Map Tiles
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 19
     }).addTo(map);
 
-    renderStations();
+    // Start listening to the database
+    listenForStationUpdates();
 }
 
-// 3. CORE LOGIC: Handle Professional Status Transitions (Unchanged from previous response)
-window.handleStatusAction = (id) => {
-    const station = stations.find(s => s.id === id);
+// 3. CORE CHANGE: Real-time Listener (Using dbOnValue)
+function listenForStationUpdates() {
+    window.dbOnValue(stationsRef, (snapshot) => {
+        let stationsData = snapshot.val();
+        
+        if (!stationsData) {
+            // Seed the database if empty
+            defaultStations.forEach(station => {
+                window.dbSet(window.dbRef(window.db, 'stations/' + station.id), station);
+            });
+            return;
+        }
+
+        const stations = Object.keys(stationsData).map(key => stationsData[key]);
+        
+        const filterText = document.getElementById('searchInput').value || '';
+        const filterStatus = document.getElementById('filterStatus').value || 'all';
+        
+        renderStations(stations, filterText, filterStatus);
+    });
+}
+
+
+// 4. CORE LOGIC: Status Transitions (Using dbGet and dbUpdate)
+window.handleStatusAction = async (id) => {
+    // Fetch data once to confirm current status before update
+    const snapshot = await window.dbGet(window.dbRef(window.db, 'stations/' + id));
+    const station = snapshot.val();
+    
     if (!station) return;
 
     let newStatus, alertMessage;
 
     if (station.status === 'Available') {
         newStatus = 'Reserved';
-        alertMessage = `⚡ Slot at ${station.name} is reserved for 15 mins.`;
+        alertMessage = `⚡ Slot at ${station.name} is reserved! (Updating for all users)`;
     } else if (station.status === 'Reserved') {
         newStatus = 'Charging';
-        alertMessage = `🔋 Charging session started at ${station.name}.`;
+        alertMessage = `🔋 Charging session started!`;
     } else if (station.status === 'Charging') {
         newStatus = 'Available';
-        alertMessage = `✅ Session ended. Slot at ${station.name} is now available.`;
+        alertMessage = `✅ Session ended. Slot is now available for others.`;
     }
     
-    // Update and re-render
-    station.status = newStatus;
-    saveData();
-    alert(alertMessage);
+    // Update data in Firebase using modular dbUpdate
+    window.dbUpdate(window.dbRef(window.db, 'stations/' + id), { status: newStatus })
+        .then(() => alert(alertMessage))
+        .catch(error => console.error("Firebase Update Error:", error));
     
-    // Re-render dashboard instantly to show changes
-    const filterText = document.getElementById('searchInput').value;
-    const filterStatus = document.getElementById('filterStatus').value;
-    renderStations(filterText, filterStatus);
+    // The dbOnValue listener will automatically trigger renderStations.
 };
 
 
-// 4. Render List and Markers
-function renderStations(filterText = '', filterStatus = 'all') {
+// 5. Render List and Markers (Unchanged logic)
+function renderStations(stations, filterText, filterStatus) {
     const listContainer = document.getElementById('stationList');
     listContainer.innerHTML = '';
     
@@ -91,9 +102,7 @@ function renderStations(filterText = '', filterStatus = 'all') {
             
             if(station.status === 'Available') availableCount++;
 
-            // Dynamic Button & Status Styling
             let btnText, btnClass, statusClass;
-
             if (station.status === 'Available') {
                 btnText = '<i class="fas fa-plug"></i> Reserve Slot';
                 btnClass = 'btn-available';
@@ -109,7 +118,6 @@ function renderStations(filterText = '', filterStatus = 'all') {
             }
 
 
-            // A. Add to List
             const card = document.createElement('div');
             card.className = 'station-card';
             
@@ -131,7 +139,6 @@ function renderStations(filterText = '', filterStatus = 'all') {
             `;
             
             card.addEventListener('click', (e) => {
-                // Fly to map marker on click
                 if (!e.target.classList.contains('btn-action')) {
                     map.flyTo([station.lat, station.lng], 15, { animate: true, duration: 1.5 });
                 }
@@ -139,7 +146,6 @@ function renderStations(filterText = '', filterStatus = 'all') {
 
             listContainer.appendChild(card);
 
-            // B. Add to Map Marker
             let markerColor;
             if (station.status === 'Available') markerColor = '#00ff9d';
             else if (station.status === 'Reserved') markerColor = '#ffc107';
@@ -158,21 +164,20 @@ function renderStations(filterText = '', filterStatus = 'all') {
         }
     });
 
-    // Update Dashboard Stats
     document.getElementById('totalStations').innerText = stations.length;
     document.getElementById('totalAvailable').innerText = availableCount;
 }
 
-// 5. Search & Filter Listeners (unchanged)
-document.getElementById('searchInput').addEventListener('input', (e) => {
-    renderStations(e.target.value, document.getElementById('filterStatus').value);
+// 6. Search & Filter Listeners (Triggers the listener to re-render)
+document.getElementById('searchInput').addEventListener('input', () => {
+    listenForStationUpdates(); 
 });
 
-document.getElementById('filterStatus').addEventListener('change', (e) => {
-    renderStations(document.getElementById('searchInput').value, e.target.value);
+document.getElementById('filterStatus').addEventListener('change', () => {
+    listenForStationUpdates();
 });
 
-// 6. Modal & Form Logic (unchanged)
+// 7. Modal & Form Logic (Using dbSet)
 const modal = document.getElementById('stationModal');
 document.getElementById('addStationBtn').onclick = () => modal.style.display = 'flex';
 document.querySelector('.close-btn').onclick = () => modal.style.display = 'none';
@@ -181,9 +186,10 @@ window.onclick = (e) => { if (e.target == modal) modal.style.display = 'none'; }
 document.getElementById('stationForm').addEventListener('submit', (e) => {
     e.preventDefault();
     
-    // NOTE: You must use real coordinates (lat/lng) when adding a new station!
+    const newStationId = Date.now().toString(); 
+
     const newStation = {
-        id: Date.now(),
+        id: newStationId,
         name: document.getElementById('nameInput').value,
         location: document.getElementById('locationInput').value,
         lat: parseFloat(document.getElementById('latInput').value),
@@ -193,12 +199,14 @@ document.getElementById('stationForm').addEventListener('submit', (e) => {
         status: "Available"
     };
 
-    stations.push(newStation);
-    saveData();
-    
-    renderStations();
-    modal.style.display = 'none';
-    e.target.reset();
+    // Use modular dbSet to push data
+    window.dbSet(window.dbRef(window.db, 'stations/' + newStationId), newStation)
+        .then(() => {
+            modal.style.display = 'none';
+            e.target.reset();
+            alert("Station deployed successfully! Check the map.");
+        })
+        .catch(error => console.error("Error deploying station:", error));
 });
 
 // Start App
